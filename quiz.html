@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atelier — a quiz that paints itself</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0f1029;--ink2:#181a3d;--paper:#f3ead7;--mute:#a9a6c4;--lapis:#4a6cf7;--verd:#3fb8a0;--leaf:#8bc34a;--saff:#f2b134;--rose:#e8546f;
+--serif:'Fraunces',Georgia,'Times New Roman',serif;--sans:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:radial-gradient(1200px 700px at 15% 0%,#232662 0%,var(--ink) 60%);color:var(--paper);font-family:var(--sans);line-height:1.5;padding:max(20px,env(safe-area-inset-top)) 20px 28px}
+main{max-width:1060px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:36px;align-items:center;min-height:calc(100vh - 56px)}
+@media(max-width:820px){main{grid-template-columns:1fr;gap:20px}}
+.canvaswrap{position:relative;aspect-ratio:1;width:100%;max-width:520px;margin:0 auto;border-radius:6px;overflow:hidden;box-shadow:0 0 0 10px #1c1e4a,0 0 0 11px #3a3d82,0 30px 60px #0008}
+canvas{width:100%;height:100%;display:block;background:#ece1c8}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(2.6rem,6vw,4.4rem);line-height:1;letter-spacing:-.02em}
+h1 i{font-weight:400;color:var(--saff)}
+.lede{font-family:var(--serif);font-size:1.2rem;color:var(--mute);margin:18px 0 26px;max-width:34ch}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px}
+.chip{--c:var(--paper);border:1.5px solid var(--c);color:var(--c);background:none;border-radius:999px;padding:9px 16px;font:600 .92rem var(--sans);cursor:pointer;transition:.18s}
+.chip[aria-pressed=true]{background:var(--c);color:var(--ink)}
+button:focus-visible{outline:3px solid var(--saff);outline-offset:3px}
+.go{background:var(--saff);color:var(--ink);border:0;border-radius:4px;padding:14px 26px;font:600 1.05rem var(--sans);cursor:pointer}
+.go.ghost{background:none;color:var(--paper);border:1.5px solid var(--mute);margin-left:10px}
+.go:hover{filter:brightness(1.08)}
+.meta{display:flex;justify-content:space-between;color:var(--mute);font-size:.9rem;margin-bottom:10px}
+.bar{height:3px;background:#2b2e66;margin-bottom:26px}.bar b{display:block;height:100%;width:0;background:var(--saff);transition:width .4s}
+.cat{font-weight:600;margin-bottom:8px}
+.q{font-family:var(--serif);font-size:clamp(1.5rem,3.2vw,2.1rem);line-height:1.2;margin-bottom:24px;max-width:26ch}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;background:#ffffff0d;color:var(--paper);border:1.5px solid #ffffff26;border-radius:6px;padding:13px 16px;font:400 1.02rem var(--sans);cursor:pointer;display:flex;gap:14px;transition:.15s}
+.opt:hover:not(:disabled){background:#ffffff1c;transform:translateX(4px)}
+.opt kbd{font:600 .8rem var(--sans);color:var(--mute);min-width:1ch}
+.opt.ok{background:#3fb8a033;border-color:var(--verd)}
+.opt.no{background:#e8546f2e;border-color:var(--rose)}
+.opt:disabled{cursor:default;color:inherit}
+.why{margin-top:18px;font-family:var(--serif);font-size:1.08rem;color:#d9d3e8;min-height:3.2em}
+.next{margin-top:12px}
+.hide{display:none!important}
+.score{font-family:var(--serif);font-size:5rem;line-height:1;font-weight:600}
+.rows{margin:22px 0;display:grid;gap:9px}
+.row{display:grid;grid-template-columns:90px 1fr 40px;gap:10px;align-items:center;font-size:.92rem}
+.row span{height:8px;background:#2b2e66;border-radius:4px;overflow:hidden}.row span i{display:block;height:100%}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+ <div class="canvaswrap"><canvas id="cv" width="900" height="900" aria-label="Your painting, which grows with every correct answer"></canvas></div>
+ <section>
+  <div id="start">
+   <h1>Atelier<br><i>a quiz that paints itself</i></h1>
+   <p class="lede">Every right answer adds a stroke to the canvas. Finish with a painting only you could have made.</p>
+   <div class="chips" id="chips"></div>
+   <button class="go" id="begin">Begin the painting</button>
+  </div>
+  <div id="play" class="hide">
+   <div class="meta"><span id="cnt"></span><span id="streak"></span></div>
+   <div class="bar"><b id="prog"></b></div>
+   <div class="cat" id="cat"></div>
+   <h2 class="q" id="q"></h2>
+   <div class="opts" id="opts"></div>
+   <p class="why" id="why" aria-live="polite"></p>
+   <button class="go next hide" id="next">Next question</button>
+  </div>
+  <div id="end" class="hide">
+   <p class="lede" id="title" style="margin-bottom:6px"></p>
+   <div class="score" id="score"></div>
+   <div class="rows" id="rows"></div>
+   <button class="go" id="again">Paint again</button><button class="go ghost" id="save">Save painting</button>
+  </div>
+ </section>
+</main>
+<script>
+const C={Physics:'#4a6cf7',Chemistry:'#3fb8a0',Biology:'#8bc34a',Mathematics:'#f2b134',Art:'#e8546f'};
+// [category, question, correct, wrong1, wrong2, wrong3, explanation]
+const Q=[
+["Physics","How fast does light travel in a vacuum?","About 300,000 km/s","About 30,000 km/s","About 150,000 km/s","About 3,000,000 km/s","It's 299,792,458 m/s, a limit built into spacetime itself."],
+["Physics","Newton's second law relates force to which pair?","Mass and acceleration","Mass and velocity","Charge and field","Energy and time","F = ma: the same push accelerates a light object more than a heavy one."],
+["Physics","Which particle carries the electromagnetic force?","Photon","Gluon","Neutrino","Higgs boson","Photons mediate electromagnetism; gluons carry the strong force."],
+["Physics","Absolute zero is closest to…","−273 °C","−100 °C","−460 °C","0 °C","0 K equals −273.15 °C, where thermal motion is at its minimum."],
+["Physics","The uncertainty principle limits precision of…","Position and momentum together","Mass and charge","Time and distance only","Energy and mass","The more sharply you pin down position, the fuzzier momentum becomes."],
+["Physics","Why is the daytime sky blue?","Short wavelengths scatter more","Air reflects the ocean","Ozone glows blue","Blue light is faster","Rayleigh scattering scatters short blue wavelengths far more than red."],
+["Chemistry","What is carbon's atomic number?","6","12","8","4","Carbon has 6 protons; 12 is its common mass number."],
+["Chemistry","Which is the lightest noble gas?","Helium","Neon","Argon","Hydrogen","Helium is inert and second only to hydrogen in lightness; hydrogen isn't a noble gas."],
+["Chemistry","Neutral water at 25 °C has a pH of…","7","0","10","14","Equal H⁺ and OH⁻ concentrations (10⁻⁷ M each) give pH 7."],
+["Chemistry","Atoms sharing electron pairs form which bond?","Covalent","Ionic","Metallic","Hydrogen","Covalent bonds share electrons; ionic bonds transfer them."],
+["Chemistry","Earth's air is mostly which gas?","Nitrogen","Oxygen","Carbon dioxide","Argon","About 78% nitrogen and 21% oxygen."],
+["Chemistry","Gold's chemical symbol is…","Au","Ag","Gd","Go","From the Latin aurum. Ag (silver) is argentum."],
+["Biology","Which organelle makes most of a cell's ATP?","Mitochondrion","Ribosome","Golgi body","Lysosome","Mitochondria run oxidative phosphorylation: the cell's power plants."],
+["Biology","In DNA, adenine pairs with…","Thymine","Cytosine","Guanine","Uracil","A–T and G–C. Uracil replaces thymine in RNA."],
+["Biology","Plants take in which gas for photosynthesis?","Carbon dioxide","Oxygen","Nitrogen","Methane","They turn CO₂ and water into sugar and release oxygen."],
+["Biology","Evolution is driven chiefly by…","Natural selection","Use and disuse","Spontaneous creation","Conscious effort","Heritable variation plus differential survival, as Darwin and Wallace described."],
+["Biology","A typical human body cell holds how many chromosomes?","46","23","48","64","23 pairs, so 46. Eggs and sperm carry 23."],
+["Biology","Which blood cells carry oxygen?","Red blood cells","White blood cells","Platelets","Plasma cells","Hemoglobin in red cells binds oxygen."],
+["Mathematics","The derivative of sin x is…","cos x","−sin x","tan x","−cos x","The slope of sine at any point is the value of cosine there."],
+["Mathematics","Interior angles of a triangle sum to…","180°","90°","270°","360°","In flat (Euclidean) geometry, always 180°."],
+["Mathematics","What is e^(iπ)?","−1","1","0","i","Euler's identity: e^(iπ) + 1 = 0."],
+["Mathematics","The first prime after 7 is…","11","9","13","8","9 = 3×3, so the next prime is 11."],
+["Mathematics","How many faces does a dodecahedron have?","12","8","20","10","Twelve pentagons. The icosahedron has 20 triangles."],
+["Mathematics","The golden ratio φ is about…","1.618","1.414","3.142","2.718","φ = (1+√5)/2, which also appears in Fibonacci ratios."],
+["Art","Who painted The Starry Night?","Vincent van Gogh","Claude Monet","Edvard Munch","Paul Gauguin","Painted in 1889 while Van Gogh was at the asylum in Saint-Rémy."],
+["Art","Impression, Sunrise gave which movement its name?","Impressionism","Cubism","Fauvism","Surrealism","A critic mocked Monet's 1872 canvas, and the label stuck."],
+["Art","Picasso and Braque pioneered…","Cubism","Dada","Baroque","Pop art","They shattered objects into multiple viewpoints around 1907–1914."],
+["Art","Which three are the traditional primary pigments?","Red, yellow, blue","Red, green, blue","Cyan, green, black","Orange, green, violet","RGB is for light; the painter's wheel starts from red, yellow, blue."],
+["Art","Who sculpted the marble David in Florence?","Michelangelo","Donatello","Bernini","Rodin","Carved 1501–1504 from a single block of Carrara marble."],
+["Art","Hokusai's The Great Wave belongs to which tradition?","Japanese ukiyo-e","Chinese ink painting","Korean minhwa","Persian miniature","A woodblock print from about 1831, from the series Thirty-six Views of Mount Fuji."]
+];
+const $=id=>document.getElementById(id),cv=$('cv'),x=cv.getContext('2d'),W=900;
+let sel=new Set(Object.keys(C)),deck,i,score,streak,shapes,tally,locked,raf;
+const rnd=(a,b)=>a+Math.random()*(b-a),shuf=a=>{a=[...a];for(let n=a.length;n;){const j=Math.random()*n--|0;[a[n],a[j]]=[a[j],a[n]]}return a};
+
+// chips
+const chips=$('chips');
+Object.keys(C).forEach(k=>{const b=document.createElement('button');b.className='chip';b.textContent=k;b.style.setProperty('--c',C[k]);b.setAttribute('aria-pressed',true);
+ b.onclick=()=>{const on=b.getAttribute('aria-pressed')!=='true';if(!on&&sel.size===1)return;b.setAttribute('aria-pressed',on);on?sel.add(k):sel.delete(k)};chips.append(b)});
+
+// painting
+function bg(){const g=x.createLinearGradient(0,0,W,W);g.addColorStop(0,'#f3ead7');g.addColorStop(1,'#e4d6b6');x.fillStyle=g;x.fillRect(0,0,W,W);
+ x.globalAlpha=.05;for(let n=0;n<900;n++){x.fillStyle=n%2?'#000':'#fff';x.fillRect((n*97)%W,(n*53)%W,2,2)}x.globalAlpha=1}
+function draw(s,t){const e=1-Math.pow(1-t,3),r=s.r*e;x.save();x.translate(s.x,s.y);x.rotate(s.a);x.fillStyle=x.strokeStyle=s.c;
+ if(s.k==='x'){x.globalAlpha=.35*t;x.lineWidth=2;x.strokeStyle='#5c5a6e';x.beginPath();x.moveTo(-s.r*e,0);x.lineTo(s.r*e,s.r*.2);x.stroke()}
+ else if(s.k==='Physics'){x.lineWidth=4;for(let n=1;n<=4;n++){x.globalAlpha=.8*t/n**.4;x.beginPath();x.ellipse(0,0,r*n/4,r*n/4*.55,0,0,7);x.stroke()}x.globalAlpha=t;x.beginPath();x.arc(0,0,r*.09,0,7);x.fill()}
+ else if(s.k==='Chemistry'){x.lineWidth=5;x.globalAlpha=.55*t;x.beginPath();for(let n=0;n<6;n++)x.lineTo(r*Math.cos(n*Math.PI/3),r*Math.sin(n*Math.PI/3));x.closePath();x.fill();x.globalAlpha=t;x.stroke();for(let n=0;n<6;n++){x.beginPath();x.arc(r*Math.cos(n*Math.PI/3),r*Math.sin(n*Math.PI/3),r*.07,0,7);x.fill()}}
+ else if(s.k==='Biology'){x.globalAlpha=.8*t;x.beginPath();x.moveTo(-r,0);x.quadraticCurveTo(0,-r*.7,r,0);x.quadraticCurveTo(0,r*.7,-r,0);x.fill();x.lineWidth=3;x.strokeStyle='#2b4a12';x.globalAlpha=.7*t;x.beginPath();x.moveTo(-r,0);x.lineTo(r*.8,0);x.stroke()}
+ else if(s.k==='Mathematics'){x.globalAlpha=.8*t;x.beginPath();x.moveTo(0,-r*.8);x.lineTo(r*.7,r*.5);x.lineTo(-r*.7,r*.5);x.closePath();x.fill();x.lineWidth=3;x.strokeStyle='#0f1029';x.globalAlpha=t;x.beginPath();x.moveTo(-r*1.1,r*.5);x.lineTo(r*1.1,-r*.5);x.stroke()}
+ else{x.globalAlpha=.75*t;for(let n=0;n<7;n++){x.beginPath();x.arc(Math.cos(n*2.4)*r*.5,Math.sin(n*2.4)*r*.5,r*(.18+(n%3)*.07),0,7);x.fill()}}
+ x.restore()}
+function paint(){bg();shapes.forEach(s=>draw(s,Math.min(1,(performance.now()-s.t0)/900)));if(shapes.some(s=>performance.now()-s.t0<900))raf=requestAnimationFrame(paint)}
+function stroke(cat,ok){shapes.push({k:ok?cat:'x',c:ok?C[cat]:'#5c5a6e',x:rnd(130,770),y:rnd(130,770),r:ok?rnd(90,170):rnd(150,330),a:rnd(0,6.28),t0:performance.now()});cancelAnimationFrame(raf);paint()}
+
+// quiz flow
+function start(){deck=shuf(Q.filter(q=>sel.has(q[0]))).slice(0,15);i=0;score=0;streak=0;shapes=[];tally={};sel.forEach(k=>tally[k]=[0,0]);
+ ['start','end'].forEach(id=>$(id).classList.add('hide'));$('play').classList.remove('hide');paint();show()}
+function show(){locked=false;const q=deck[i];$('cnt').textContent=`Question ${i+1} of ${deck.length}`;$('streak').textContent=streak>1?`${streak} in a row`:'';
+ $('prog').style.width=i/deck.length*100+'%';$('cat').textContent=q[0];$('cat').style.color=C[q[0]];$('q').textContent=q[1];$('why').textContent='';$('next').classList.add('hide');
+ const o=$('opts');o.innerHTML='';shuf(q.slice(2,6)).forEach((t,n)=>{const b=document.createElement('button');b.className='opt';b.innerHTML=`<kbd>${n+1}</kbd><span></span>`;b.lastChild.textContent=t;b.onclick=()=>pick(b,t);o.append(b)})}
+function pick(b,t){if(locked)return;locked=true;const q=deck[i],ok=t===q[2];
+ [...$('opts').children].forEach(e=>{e.disabled=true;if(e.lastChild.textContent===q[2])e.classList.add('ok')});if(!ok)b.classList.add('no');
+ tally[q[0]][1]++;if(ok){score++;streak++;tally[q[0]][0]++}else streak=0;stroke(q[0],ok);
+ $('why').textContent=(ok?'Yes. ':'Not quite. ')+q[6];$('next').textContent=i+1<deck.length?'Next question':'See my painting';$('next').classList.remove('hide');$('next').focus()}
+function next(){i++;i<deck.length?show():finish()}
+function finish(){$('play').classList.add('hide');$('end').classList.remove('hide');const p=score/deck.length;
+ $('title').textContent=p>.9?'Polymath. A masterwork.':p>.7?'Renaissance mind.':p>.45?'A promising studio.':'Every master starts with a blank canvas.';
+ $('score').textContent=`${score}/${deck.length}`;$('rows').innerHTML=Object.entries(tally).filter(([,v])=>v[1]).map(([k,v])=>`<div class="row"><b>${k.slice(0,5)}${k.length>5?'.':''}</b><span><i style="width:${v[0]/v[1]*100}%;background:${C[k]}"></i></span><em>${v[0]}/${v[1]}</em></div>`).join('')}
+
+$('begin').onclick=start;$('next').onclick=next;$('again').onclick=()=>{$('end').classList.add('hide');$('start').classList.remove('hide');shapes=[];bg()};
+$('save').onclick=()=>{const a=document.createElement('a');a.download='my-atelier-painting.png';a.href=cv.toDataURL('image/png');a.click()};
+addEventListener('keydown',e=>{if($('play').classList.contains('hide'))return;if(/^[1-4]$/.test(e.key)&&!locked)$('opts').children[e.key-1]?.click();else if(e.key==='Enter'&&locked){e.preventDefault();next()}});
+shapes=[];bg();
+</script>
+</body>
+</html>
